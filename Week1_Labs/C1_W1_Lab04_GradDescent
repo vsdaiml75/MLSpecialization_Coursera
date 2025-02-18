@@ -1,0 +1,165 @@
+import math, copy
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+plt.style.use('./deeplearning.mplstyle')
+
+# plt_house_x:      Plots training data of house prices vs. size
+# plt_contour_wgrad: Shows contour plot of cost function with gradient descent path
+# plt_divergence:    Visualizes cost explosion when learning rate is too large
+# plt_gradients:     Displays partial derivatives and gradient vectors of cost function
+from lab_utils_uni import plt_house_x, plt_contour_wgrad, plt_divergence, plt_gradients
+
+x_train = np.array([1.0, 2.0]) # features - size of the house in 1000 sq.ft 
+y_train = np.array([300.0, 500.0]) # target values - price of the house in 1000s of dollars
+
+def compute_cost(x, y, w, b):
+    """
+    Compute the cost for linear regression
+    """
+    m = x.shape[0]    # Get number of training examples
+    cost = 0          # Initialize cost sum to zero
+    
+    for i in range(m):
+        f_wb = w * x[i] + b    # Model prediction: f(x) = wx + b for example i
+        cost = cost + (f_wb - y[i]) ** 2    # Add squared difference between prediction and actual value
+                                           # (f_wb - y[i])**2 is the squared error for example i
+    
+    total_cost = 1 / (2 * m) * cost    # Compute average cost: J(w,b) = 1/(2m) * Σ(f_wb - y)²
+                                       # The 1/2 is there to simplify derivative calculations
+    return total_cost
+
+def compute_gradient(x, y, w, b):
+    """
+    Compute the partial derivatives of the cost function with respect to w and b
+    Args:
+        x (ndarray (m,)): Data, m examples 
+        y (ndarray (m,)): target values
+        w,b (scalar) : model parameters
+    Returns:
+        dj_dw (scalar): The gradient of the cost with respect to w
+        dj_db (scalar): The gradient of the cost with respect to b
+    """
+    # Number of training examples
+    m = x.shape[0]    # Get number of training examples
+    dj_dw = 0          # Initialize partial derivative of cost with respect to w
+    dj_db = 0          # Initialize partial derivative of cost with respect to b
+
+
+    for i in range(m):
+        f_wb = w * x[i] + b    # Model prediction: f(x) = wx + b for example i
+        dj_dw_i = (f_wb - y[i]) * x[i]    # Partial derivative of cost with respect to w for example i
+        dj_db_i = f_wb - y[i]    # Partial derivative of cost with respect to b for example i
+        dj_dw += dj_dw_i    # Sum the partial derivatives
+        dj_db += dj_db_i    # Sum the partial derivatives
+
+    dj_dw = dj_dw / m    # Compute average derivative
+    dj_db = dj_db / m    # Compute average derivative
+
+    return dj_dw, dj_db
+
+plt_gradients(x_train, y_train, compute_cost, compute_gradient)
+plt.show()
+
+def gradient_descent(x, y, w_in, b_in, alpha, num_iters, cost_function, gradient_function):
+    """
+    Performs gradient descent to fit w,b. Updates w,b by taking num_iters gradient steps
+    with learning rate alpha
+
+    Args:
+        x (ndarray (m,)): Data, m examples 
+        y (ndarray (m,)): target values
+        w_in,b_in (scalar): initial values of model parameters
+        alpha (float): Learning rate
+        num_iters (int): number of iterations to run gradient descent
+        cost_function: function to compute cost
+
+    Returns:
+        w (scalar): Updated value of parameter after running gradient descent
+        b (scalar): Updated value of parameter after running gradient descent
+        J_history (list): History of cost values
+        p_history (list): History of parameters [w,b]
+    """
+    J_history = [] # History of cost values
+    p_history = [] # History of parameters [w,b]
+    w = w_in # Initial values of w
+    b = b_in # Initial values of b
+
+    for i in range(num_iters):
+        # Calculate the gradient and update the parameters
+        dj_dw, dj_db = gradient_function(x, y, w, b)
+        # Update parameters
+        w = w - alpha * dj_dw
+        b = b - alpha * dj_db
+
+        # Save cost J at each iteration
+        if i < 100000:
+            J_history.append(cost_function(x, y, w, b))
+            p_history.append([w, b])
+
+        # Print cost every at intervals 10 times or as many iterations if < 10
+        if i % math.ceil(num_iters / 10) == 0:
+            print(f"Iteration {i:4d}: Cost {J_history[-1]:0.2e} ",
+                  f"dj_dw: {dj_dw:0.3e}, dj_db: {dj_db:0.3e} ",
+                  f"w: {w:0.3e}, b:{b:0.3e}")
+
+    return w, b, J_history, p_history # Return final w,b and J history  
+
+w_init = 0
+b_init = 0  
+
+tmp_alpha = 0.01
+iterations = 10000
+
+w_final, b_final, J_hist, p_hist = gradient_descent(x_train, y_train, w_init, b_init, tmp_alpha, iterations, compute_cost, compute_gradient)
+print(f"(w,b) found by gradient descent: {w_final:8.4f}, {b_final:8.4f}")
+
+# First create a figure and axis
+fig, ax = plt.subplots(1,1, figsize=(12,6))
+
+# Convert parameter history to list of lists
+p_hist_list = [list(p) for p in p_hist]  # Convert numpy array to list of lists
+
+# Then pass parameters in the correct order based on the function definition
+plt_contour_wgrad(x_train, y_train, p_hist_list,  # Pass as list instead of numpy array
+                 ax=ax,
+                 w_range=[-100, 500, 5],
+                 b_range=[-500, 500, 5])
+plt.show()
+
+# Plot cost versus iteration
+fig, (ax1,ax2) = plt.subplots(1,2, constrained_layout=True, figsize=(12,3))
+ax1.plot(J_hist)
+ax1.set_xlabel('Iteration')
+ax1.set_ylabel('Cost')
+ax1.set_title('Cost vs. Iteration')
+ax2.plot(p_hist)
+ax2.set_xlabel('w')
+ax2.set_ylabel('b')
+ax2.set_title('Parameter History')
+plt.show()
+
+print(f"1000 sqft house prediction {w_final*1.0 + b_final:0.1f} Thousand dollars")
+print(f"1200 sqft house prediction {w_final*1.2 + b_final:0.1f} Thousand dollars")
+print(f"2000 sqft house prediction {w_final*2.0 + b_final:0.1f} Thousand dollars")
+
+# Instead, let's plot the parameter history as a line plot
+fig, ax = plt.subplots(1,1, figsize=(12,6))
+p_hist = np.array(p_hist)
+ax.plot(p_hist[:, 0], p_hist[:, 1], 'r.', label='Gradient descent path')
+ax.set_xlabel('w'); ax.set_ylabel('b')
+ax.set_title('Parameter History')
+ax.legend()
+plt.show()
+
+
+
+
+
+
+
+
